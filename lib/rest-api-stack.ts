@@ -62,11 +62,25 @@ export class RestAPIStack extends cdk.Stack {
         environment: {
           MOVIES_TABLE_NAME: moviesTable.tableName,
           CAST_TABLE_NAME: movieCastsTable.tableName,
-          REGION: "eu-west-1",
+          REGION: "us-east-1",
         },
       }
     );
-
+    const getCrewByRoleFn = new lambdanode.NodejsFunction(
+      this,
+      "GetCrewByRoleFn",
+      {
+        architecture: lambda.Architecture.ARM_64,
+        runtime: lambda.Runtime.NODEJS_18_X,
+        entry: `${__dirname}/../lambdas/getMovieCrewRole.ts`,
+        timeout: cdk.Duration.seconds(10),
+        memorySize: 128,
+        environment: {
+          TABLE_NAME: movieCrewTable.tableName,
+          REGION: "us-east-1",
+        },
+      }
+    );
     const getMovieCastMembersFn = new lambdanode.NodejsFunction(
       this,
       "GetCastMemberFn",
@@ -78,7 +92,7 @@ export class RestAPIStack extends cdk.Stack {
         memorySize: 128,
         environment: {
           TABLE_NAME: movieCastsTable.tableName,
-          REGION: "eu-west-1",
+          REGION: "us-east-1",
         },
       }
     );
@@ -94,7 +108,7 @@ export class RestAPIStack extends cdk.Stack {
         memorySize: 128,
         environment: {
           TABLE_NAME: moviesTable.tableName,
-          REGION: "eu-west-1",
+          REGION: "us-east-1",
         },
       }
     );
@@ -146,7 +160,6 @@ export class RestAPIStack extends cdk.Stack {
       "GET",
       new apig.LambdaIntegration(getMovieByIdFn, { proxy: true })
     );
-
     const movieCastEndpoint = movieEndpoint.addResource("cast");
     movieCastEndpoint.addMethod(
       "GET",
@@ -157,11 +170,24 @@ export class RestAPIStack extends cdk.Stack {
       "DELETE",
       new apig.LambdaIntegration(deleteMovieByIdFn, { proxy: true })
     );
+    const crewsRoleEndpoint = api.root.addResource("crew");
 
+    crewsRoleEndpoint.addMethod(
+      "GET",
+      new apig.LambdaIntegration(getCrewByRoleFn, { proxy: true })
+    );
+    
+    const crewRoleEndpoint = crewsRoleEndpoint.addResource("{roleId}");
+    crewRoleEndpoint.addMethod(
+      "GET",
+      new apig.LambdaIntegration(getCrewByRoleFn, { proxy: true })
+    );
+    
     // Permissions;
     moviesTable.grantReadData(getMovieByIdFn);
     moviesTable.grantReadWriteData(deleteMovieByIdFn);
     movieCastsTable.grantReadData(getMovieCastMembersFn);
     movieCastsTable.grantReadData(getMovieByIdFn);
+    movieCrewTable.grantReadData(getCrewByRoleFn);
   }
 }
